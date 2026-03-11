@@ -33,6 +33,7 @@ public class ThrowSpawner : MonoBehaviour
     GameObject _activeBall;
     GameObject _activeTarget;
     bool _ballCaught;
+    bool _wasBallGrabbedLastFrame;
 
     void Update()
     {
@@ -48,6 +49,7 @@ public class ThrowSpawner : MonoBehaviour
             }
 
             _ballCaught = false;
+            _wasBallGrabbedLastFrame = false;
 
             _t += Time.deltaTime;
             if (_t >= spawnInterval)
@@ -81,6 +83,7 @@ public class ThrowSpawner : MonoBehaviour
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
         GameObject obj = Instantiate(prefab, spawnPos, Random.rotation);
         _activeBall = obj;
+        _wasBallGrabbedLastFrame = false;
 
         Rigidbody rb = obj.GetComponent<Rigidbody>();
         if (!rb) rb = obj.AddComponent<Rigidbody>();
@@ -111,13 +114,16 @@ public class ThrowSpawner : MonoBehaviour
             }
         }
 
+        bool isBallGrabbed = IsBallGrabbed(_activeBall);
         float distanceToCatchPoint = Vector3.Distance(_activeBall.transform.position, catchPoint.position);
 
-        if (!_ballCaught && distanceToCatchPoint <= catchDistance)
+        if (!_ballCaught && (isBallGrabbed || distanceToCatchPoint <= catchDistance))
         {
             _ballCaught = true;
             SpawnTarget();
         }
+
+        _wasBallGrabbedLastFrame = isBallGrabbed;
 
         float distanceFromPlayer = Vector3.Distance(_activeBall.transform.position, playerHead.position);
         if (distanceFromPlayer > ballOutOfRangeDistance)
@@ -133,6 +139,33 @@ public class ThrowSpawner : MonoBehaviour
         }
     }
 
+    bool IsBallGrabbed(GameObject ball)
+    {
+        if (ball == null) return false;
+
+        if (catchPoint != null && ball.transform.IsChildOf(catchPoint))
+        {
+            return true;
+        }
+
+        Component grabComponent = ball.GetComponent("XRGrabInteractable");
+        if (grabComponent != null)
+        {
+            var type = grabComponent.GetType();
+            var isSelectedProperty = type.GetProperty("isSelected");
+            if (isSelectedProperty != null)
+            {
+                object value = isSelectedProperty.GetValue(grabComponent, null);
+                if (value is bool selected && selected)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public void HandleBallHitTarget(GameObject ball, GameObject target)
     {
         if (ball != null) Destroy(ball);
@@ -141,6 +174,7 @@ public class ThrowSpawner : MonoBehaviour
         if (_activeBall == ball) _activeBall = null;
         if (_activeTarget == target) _activeTarget = null;
         _ballCaught = false;
+        _wasBallGrabbedLastFrame = false;
         _t = 0f;
     }
 
