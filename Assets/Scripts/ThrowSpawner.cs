@@ -5,6 +5,7 @@ public class ThrowSpawner : MonoBehaviour
     [Header("References")]
     public Transform playerHead;
     public GameObject[] prefabs;
+    public GameObject targetPrefab;
 
     [Header("Spawn")]
     public float spawnRadius = 4.0f;
@@ -21,18 +22,42 @@ public class ThrowSpawner : MonoBehaviour
     [Header("Timing")]
     public float spawnInterval = 1.0f;
 
+    [Header("Cleanup")]
+    public float ballOutOfRangeDistance = 12f;
+    public float catchDistance = 0.6f;
+    public float targetSpawnDistance = 5f;
+    public float targetHeightOffset = 0.2f;
+
     float _t;
+    GameObject _activeBall;
+    GameObject _activeTarget;
+    bool _ballCaught;
 
     void Update()
     {
         if (playerHead == null || prefabs == null || prefabs.Length == 0) return;
 
-        _t += Time.deltaTime;
-        if (_t >= spawnInterval)
+        if (_activeBall == null)
         {
-            _t = 0f;
-            SpawnAndThrow();
+            if (_activeTarget != null)
+            {
+                Destroy(_activeTarget);
+                _activeTarget = null;
+            }
+
+            _ballCaught = false;
+
+            _t += Time.deltaTime;
+            if (_t >= spawnInterval)
+            {
+                _t = 0f;
+                SpawnAndThrow();
+            }
+
+            return;
         }
+
+        HandleActiveBall();
     }
 
     void SpawnAndThrow()
@@ -45,8 +70,15 @@ public class ThrowSpawner : MonoBehaviour
         Vector3 spawnPos = playerHead.position + dir * spawnRadius;
         spawnPos.y = playerHead.position.y + yOffset;
 
+        if (_activeTarget != null)
+        {
+            Destroy(_activeTarget);
+            _activeTarget = null;
+        }
+
         GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
         GameObject obj = Instantiate(prefab, spawnPos, Random.rotation);
+        _activeBall = obj;
 
         Rigidbody rb = obj.GetComponent<Rigidbody>();
         if (!rb) rb = obj.AddComponent<Rigidbody>();
@@ -59,8 +91,72 @@ public class ThrowSpawner : MonoBehaviour
         Vector3 aimDir = (jitter * toPlayer).normalized;
 
         float speed = Random.Range(throwSpeedMin, throwSpeedMax);
-        rb.linearVelocity = aimDir * speed;
-
+        rb.velocity = aimDir * speed;
         rb.angularVelocity = Random.onUnitSphere * Random.Range(spinMin, spinMax);
+    }
+
+    void HandleActiveBall()
+    {
+        if (_activeBall == null) return;
+
+        if (_ballCaught && _activeTarget != null)
+        {
+            float distanceToTarget = Vector3.Distance(_activeBall.transform.position, _activeTarget.transform.position);
+            if (distanceToTarget <= 0.6f)
+            {
+                HandleBallHitTarget(_activeBall, _activeTarget);
+                return;
+            }
+        }
+
+        float distanceToHead = Vector3.Distance(_activeBall.transform.position, playerHead.position);
+
+        if (!_ballCaught && distanceToHead <= catchDistance)
+        {
+            _ballCaught = true;
+            SpawnTarget();
+        }
+
+        float distanceFromPlayer = Vector3.Distance(_activeBall.transform.position, playerHead.position);
+        if (distanceFromPlayer > ballOutOfRangeDistance)
+        {
+            Destroy(_activeBall);
+            _activeBall = null;
+
+            if (_activeTarget != null)
+            {
+                Destroy(_activeTarget);
+                _activeTarget = null;
+            }
+        }
+    }
+
+    public void HandleBallHitTarget(GameObject ball, GameObject target)
+    {
+        if (ball != null) Destroy(ball);
+        if (target != null) Destroy(target);
+
+        if (_activeBall == ball) _activeBall = null;
+        if (_activeTarget == target) _activeTarget = null;
+        _ballCaught = false;
+        _t = 0f;
+    }
+
+    void SpawnTarget()
+    {
+        if (targetPrefab == null || _activeTarget != null) return;
+
+        Vector3 forward = playerHead.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f)
+        {
+            forward = Vector3.forward;
+        }
+        forward.Normalize();
+
+        Vector3 targetPos = playerHead.position + forward * targetSpawnDistance;
+        targetPos.y = playerHead.position.y + targetHeightOffset;
+
+        _activeTarget = Instantiate(targetPrefab, targetPos, Quaternion.identity);
     }
 }
