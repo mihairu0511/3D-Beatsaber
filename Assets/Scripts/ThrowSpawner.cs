@@ -4,6 +4,7 @@ public class ThrowSpawner : MonoBehaviour
 {
     [Header("References")]
     public Transform playerHead;
+    public Transform catchPoint;
     public GameObject[] prefabs;
     public GameObject targetPrefab;
 
@@ -36,6 +37,7 @@ public class ThrowSpawner : MonoBehaviour
     void Update()
     {
         if (playerHead == null || prefabs == null || prefabs.Length == 0) return;
+        if (catchPoint == null) catchPoint = playerHead;
 
         if (_activeBall == null)
         {
@@ -109,9 +111,9 @@ public class ThrowSpawner : MonoBehaviour
             }
         }
 
-        float distanceToHead = Vector3.Distance(_activeBall.transform.position, playerHead.position);
+        float distanceToCatchPoint = Vector3.Distance(_activeBall.transform.position, catchPoint.position);
 
-        if (!_ballCaught && distanceToHead <= catchDistance)
+        if (!_ballCaught && distanceToCatchPoint <= catchDistance)
         {
             _ballCaught = true;
             SpawnTarget();
@@ -146,6 +148,12 @@ public class ThrowSpawner : MonoBehaviour
     {
         if (targetPrefab == null || _activeTarget != null) return;
 
+        if (playerHead == null)
+        {
+            Debug.LogWarning("ThrowSpawner: playerHead is missing, so target cannot spawn.");
+            return;
+        }
+
         Vector3 forward = playerHead.forward;
         forward.y = 0f;
         if (forward.sqrMagnitude < 0.001f)
@@ -158,5 +166,6 @@ public class ThrowSpawner : MonoBehaviour
         targetPos.y = playerHead.position.y + targetHeightOffset;
 
         _activeTarget = Instantiate(targetPrefab, targetPos, Quaternion.identity);
+        Debug.Log("ThrowSpawner: Target spawned.");
     }
 }
