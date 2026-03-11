@@ -188,15 +188,11 @@ public class ThrowSpawner : MonoBehaviour
             return;
         }
 
-        Vector3 forward = playerHead.forward;
-        forward.y = 0f;
-        if (forward.sqrMagnitude < 0.001f)
-        {
-            forward = Vector3.forward;
-        }
-        forward.Normalize();
+        Vector2 randomCircle = Random.insideUnitCircle.normalized;
+        float randomDistance = Random.Range(targetSpawnDistance * 0.5f, targetSpawnDistance);
 
-        Vector3 targetPos = playerHead.position + forward * targetSpawnDistance;
+        Vector3 randomDir = new Vector3(randomCircle.x, 0f, randomCircle.y);
+        Vector3 targetPos = playerHead.position + randomDir * randomDistance;
         targetPos.y = playerHead.position.y + targetHeightOffset;
 
         _activeTarget = Instantiate(targetPrefab, targetPos, Quaternion.identity);
